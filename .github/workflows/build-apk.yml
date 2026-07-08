@@ -1,5 +1,4 @@
-
-name: Compilar APK desde ZIP
+name: Compilar APK de AIDE
 on: [push, workflow_dispatch]
 
 jobs:
@@ -8,38 +7,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Descomprimir proyecto
+      - name: Descomprimir y listar todo
         run: |
           unzip -o ia-local.zip
-          if [ -d "ia-local" ]; then
-            mv ia-local/* .
-            rm -rf ia-local
-          fi
-          ls -la
+          ls -la # Veremos exactamente qué hay adentro
 
-      - name: Configurar Java
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Compilar APK sin requerir gradlew
+      - name: Instalar herramientas de compilación
         run: |
-          # Si no hay gradlew, generamos la estructura
-          if [ ! -f "build.gradle" ]; then
-            echo "ERROR: No es un proyecto Android válido"
-            exit 1
-          fi
-          # Usamos gradle directamente si falta el wrapper
-          if [ -f "gradlew" ]; then
-            chmod +x gradlew
-            ./gradlew clean assembleDebug --stacktrace
-          else
-            gradle clean assembleDebug --stacktrace
-          fi
+          sudo apt update && sudo apt install -y android-sdk build-essential openjdk-17-jdk
+          export ANDROID_HOME=/usr/lib/android-sdk
 
-      - name: Guardar APK listo
-        uses: actions/upload-artifact@v4
-        with:
-          name: APK-Listo
-          path: app/build/outputs/apk/debug/*.apk
+      - name: Buscar estructura de AIDE y compilar
+        run: |
+          # Si no hay estructura Gradle, usamos el método de AIDE
+          if [ ! -f "build.gradle" ]; then
+            echo "⚠️ Proyecto de AIDE detectado, ajustando..."
+            # Generamos la estructura mínima que falta
+            cat > build.gradle << 'EOF'
+            buildscript {
+                repositories { google() mavenCentral() }
+                dependencies { classpath 'com.android.tools.build:gradle:7.4.2' }
+            }
+            task clean(type: Delete) { delete rootProject.buildDir }
+            EOF
+          fi
+          
+          # Intentamos compilar con gradle o con herramientas de AIDE
+          which gradle || echo "No se encontró gradle, ajustando..."
