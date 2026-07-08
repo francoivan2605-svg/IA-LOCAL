@@ -1,4 +1,4 @@
- name: Compilar APK desde ZIP (arreglo ruta)
+name: Compilar APK DEFINITIVO
 on: [push, workflow_dispatch]
 
 jobs:
@@ -7,37 +7,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Descomprimir y arreglar ruta
+      - name: Buscar y descomprimir ZIP
         run: |
-          unzip -o ia-local.zip
-          # Si hay una carpeta extra, movemos todo afuera
+          ZIP=$(find . -name "*.zip" | head -n 1)
+          if [ -z "$ZIP" ]; then
+            echo "❌ NO SE ENCONTRÓ NINGÚN ARCHIVO ZIP EN EL REPOSITORIO"
+            exit 1
+          fi
+          echo "✅ Encontrado: $ZIP"
+          unzip -o "$ZIP"
+          # Arreglar carpeta extra
           if [ -d "ia-local" ]; then
             mv ia-local/* .
             rm -rf ia-local
           fi
-          ls -la # Verás que ya salen gradlew y las carpetas
+          ls -la
 
-      - name: Configurar Java
+      - name: Java 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Permisos
+      - name: Permisos y compilar
         run: |
-          if [ -f "gradlew" ]; then
-            chmod +x gradlew
-            echo "✅ gradlew listo"
-          else
-            echo "❌ No se encontró gradlew, revisa el ZIP"
-            exit 1
-          fi
-
-      - name: Compilar APK
-        run: ./gradlew clean assembleDebug --stacktrace
+          chmod +x gradlew
+          ./gradlew clean assembleDebug --stacktrace
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: APK-IA-LOCAL
+          name: APK-LISTO
           path: app/build/outputs/apk/debug/*.apk
