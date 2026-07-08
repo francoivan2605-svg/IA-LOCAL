@@ -1,3 +1,4 @@
+
 name: Compilar APK desde ZIP
 on: [push, workflow_dispatch]
 
@@ -9,7 +10,11 @@ jobs:
 
       - name: Descomprimir proyecto
         run: |
-          unzip -o ia-local.zip -d .
+          unzip -o ia-local.zip
+          if [ -d "ia-local" ]; then
+            mv ia-local/* .
+            rm -rf ia-local
+          fi
           ls -la
 
       - name: Configurar Java
@@ -18,14 +23,23 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Dar permiso a Gradle
-        run: chmod +x gradlew
-
-      - name: Compilar APK
-        run: ./gradlew assembleDebug
+      - name: Compilar APK sin requerir gradlew
+        run: |
+          # Si no hay gradlew, generamos la estructura
+          if [ ! -f "build.gradle" ]; then
+            echo "ERROR: No es un proyecto Android válido"
+            exit 1
+          fi
+          # Usamos gradle directamente si falta el wrapper
+          if [ -f "gradlew" ]; then
+            chmod +x gradlew
+            ./gradlew clean assembleDebug --stacktrace
+          else
+            gradle clean assembleDebug --stacktrace
+          fi
 
       - name: Guardar APK listo
         uses: actions/upload-artifact@v4
         with:
           name: APK-Listo
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/*.apk
